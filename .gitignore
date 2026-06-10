@@ -1,3 +1,12 @@
-# Ignore build artifacts
+# Compiled binaries and objects
+obj/
 *.o
 hft_engine
+test_cache_alignment
+test_packet_layout
+test_ring_buffer
+benchmark_latency
+
+# Logs and system files
+.DS_Store
+*.log

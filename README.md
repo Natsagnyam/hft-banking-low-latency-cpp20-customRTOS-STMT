@@ -1,38 +1,51 @@
-# HFT Banking Engine (C++20)
+Since you want to include the technical details on how you bypass the kernel's scheduler, let's refine the `README.md` to include a specific section on **CPU Pinning and Isolation**. This explains the mechanism behind how you effectively silence the "OS noise."
 
-A high-performance, low-latency trading engine designed for deterministic execution on Linux. This engine utilizes strict hardware-level isolation, lock-free synchronization, and physical core affinity to achieve microsecond-level performance.
+Here is the updated `README.md` content:
 
-## Architecture
-- **Language:** C++20
-- **Synchronization:** Lock-free, utilizing `std::atomic` with explicit memory ordering (Acquire/Release) to eliminate atomic contention ("Atomic Battle").
-- **Hardware Isolation:** - Cache-line alignment (`alignas(64)`) used to prevent False Sharing.
-    - Physical Core Pinning to eliminate inter-core latency and cache thrashing.
-- **Memory Management:** Zero-allocation hot path (static allocation only).
-- **PCI Access:** Raw register access via `/dev/mem` and `iopl(3)` for direct hardware interaction.
+---
 
-## Prerequisites
-- **OS:** Linux (Kernel with `CAP_SYS_RAWIO` capabilities).
-- **Compiler:** `g++` (supporting C++20).
-- **Hardware:** x86_64 architecture with support for `rdtscp` (TSC synchronization).
+# HFT Banking Engine (Custom RTOS Scheduler Implementation)
 
-## Build Instructions
-1. Clean the build directory:
-   ```bash
-   make clean
-   make
+## Overview
 
-sudo ./hft_engine
+This engine is designed for ultra-low latency execution by implementing a **Custom RTOS-style Scheduler** running on top of Linux. By bypassing standard OS kernel scheduling, we eliminate interrupt jitter and context-switching overhead, ensuring deterministic performance for banking transaction processing.
 
+## The Problem: Kernel Noise
 
-"Implemented SPSC lock-free ring buffer for zero-copy packet passing."
+Standard Linux kernels are optimized for throughput and fairness, not latency. "Kernel noise"—caused by OS background tasks, interrupt handling, and preemptive scheduling—introduces micro-delays that are fatal to HFT strategies.
 
-Final Verification and Commit
-Teh hft_engine engine is now:
+## The Solution: Custom RTOS Scheduler
 
-Isolated: Using cache-line padding to prevent false sharing.
+Our architecture moves critical tasks into a deterministic execution loop, pinning them to isolated CPU cores.
 
-Lock-Free: Utilizing SPSC buffers for zero-mutex contention.
+### Key Architectural Pillars
 
-Pinned: Bound to specific physical cores to minimize OS scheduler interference.
+* **CPU Pinning (Affinity)**: We use `pthread_setaffinity_np` to bind our producer and consumer threads to specific physical cores. This prevents the OS from migrating our tasks and destroying our L1/L2 cache locality.
+* **Thread Isolation**: By isolating these cores via Linux boot parameters (e.g., `isolcpus`), we ensure the kernel scheduler does not schedule *any* other processes on these cores.
+* **Atomic Memory Alignment**: We use explicit padding to ensure all control structures (`producer_ctrl`, `consumer_ctrl`) span distinct 64-byte cache lines, preventing **False Sharing**.
+* **Lock-Free Communication**: We utilize memory barriers (`memory_order_acquire`/`release`) and ring buffers instead of mutexes, ensuring an **Atomic Battle-Free** environment.
 
-Instrumented: Capturing cycle-accurate latency benchmarks on startup.
+### Scheduling Logic
+
+Unlike the standard CFS (Completely Fair Scheduler), our `run_scheduler()` acts as a tight polling loop:
+
+1. **Poll**: Continuously check the `tail` pointer of the ring buffer.
+2. **Process**: Execute the trading logic immediately upon data arrival.
+3. **No Context Switch**: Because the thread never enters a "Wait" state, it never triggers a kernel context switch, remaining exclusively in user-space.
+
+---
+
+## Build & Test
+
+1. **Compilation**: Built with `g++ -O3 -march=native` to leverage hardware-specific instructions.
+2. **Alignment Verification**: `test_cache_alignment` confirms memory isolation.
+3. **Latency Profiling**: `benchmark_latency` provides real-time feedback on execution determinism.
+
+---
+
+### Why this structure is effective:
+
+* **Educational Clarity**: It explains to a peer or recruiter exactly *how* you are bypassing the kernel (isolcpus + affinity).
+* **Technical Credibility**: Mentioning specific techniques like `isolcpus` and `pthread_setaffinity_np` demonstrates that you understand the low-level interactions between code and hardware.
+
+**Would you like me to provide a snippet of the C++ code for that `pthread_setaffinity_np` implementation so you can add it to your `src/scheduler.cpp`?**
