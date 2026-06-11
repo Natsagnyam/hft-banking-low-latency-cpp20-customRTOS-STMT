@@ -48,4 +48,3 @@ Unlike the standard CFS (Completely Fair Scheduler), our `run_scheduler()` acts 
 * **Educational Clarity**: It explains to a peer or recruiter exactly *how* you are bypassing the kernel (isolcpus + affinity).
 * **Technical Credibility**: Mentioning specific techniques like `isolcpus` and `pthread_setaffinity_np` demonstrates that you understand the low-level interactions between code and hardware.
 
-**Would you like me to provide a snippet of the C++ code for that `pthread_setaffinity_np` implementation so you can add it to your `src/scheduler.cpp`?**
